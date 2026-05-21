@@ -5,7 +5,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { App, Button, Image, Tag } from "antd";
 
 import { fetchPrompts, type Prompt } from "@/services/api/prompts";
-import { navigationTools } from "@/lib/navigation-tools";
+import { navigationTools } from "@/constant/navigation-tools";
 import { cn } from "@/lib/utils";
 
 function Highlighter({

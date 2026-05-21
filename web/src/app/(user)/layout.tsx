@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
 import { AppTopNav } from "@/components/layout/app-top-nav";
-import { type NavigationToolSlug, navigationTools } from "@/lib/navigation-tools";
+import { type NavigationToolSlug, navigationTools } from "@/constant/navigation-tools";
 import { useConfigStore } from "@/stores/use-config-store";
 
 export default function UserLayout({ children }: { children: ReactNode }) {

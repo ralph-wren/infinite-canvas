@@ -1,16 +1,16 @@
 "use client";
 
-import { LogOut, Menu, Settings2, Shield } from "lucide-react";
+import { Menu, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { App, Button, Drawer, Form, Input, Modal, Segmented } from "antd";
 
 import { ModelPicker } from "@/components/model-picker";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import { navigationTools, type NavigationToolSlug } from "@/constant/navigation-tools";
 import { GitHubLink } from "@/components/layout/github-link";
 import { UserStatusActions } from "@/components/layout/user-status-actions";
 import { VersionReleaseModal } from "@/components/layout/version-release-modal";
 import { useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
-import { navigationTools, type NavigationToolSlug } from "@/lib/navigation-tools";
 import { fetchImageModels } from "@/services/api/image";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { useUserStore } from "@/stores/use-user-store";
@@ -37,7 +37,6 @@ export function AppTopNav({ activeToolSlug, config, onConfigChange, hideHeader =
   const setTheme = useThemeStore((state) => state.setTheme);
   const user = useUserStore((state) => state.user);
   const isReady = useUserStore((state) => state.isReady);
-  const logout = useUserStore((state) => state.clearSession);
   const publicSettings = useConfigStore((state) => state.publicSettings);
   const effectiveConfig = useEffectiveConfig();
   const modelChannel = publicSettings?.modelChannel;
@@ -132,13 +131,7 @@ export function AppTopNav({ activeToolSlug, config, onConfigChange, hideHeader =
 
             <div className="my-auto flex h-9 min-w-0 items-center justify-end gap-2 justify-self-end whitespace-nowrap">
               {isReady && user ? (
-                <UserStatusActions
-                  onOpenConfig={() => openConfigDialog(false)}
-                  menuItems={[
-                    ...(user.role === "admin" ? [{ key: "admin", icon: <Shield className="size-4" />, label: <Link href="/admin">管理后台</Link> }] : []),
-                    { key: "logout", icon: <LogOut className="size-4" />, label: "退出登录", onClick: logout },
-                  ]}
-                />
+                <UserStatusActions />
               ) : (
                 <>
                   <button

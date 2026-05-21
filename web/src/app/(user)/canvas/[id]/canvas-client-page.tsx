@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent as ReactChangeEvent, DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Home, ImageIcon, Images, Keyboard, List, LogOut, Menu, MessageSquare, Plus, Redo2, Settings2, Trash2, Undo2, Upload } from "lucide-react";
+import { Home, ImageIcon, Images, List, Menu, MessageSquare, Plus, Redo2, Settings2, Trash2, Undo2, Upload } from "lucide-react";
 
 import { requestEdit, requestGeneration, requestImageQuestion } from "@/services/api/image";
 import { defaultConfig, type AiConfig, useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
@@ -11,10 +11,9 @@ import { resolveImageUrl, uploadImage, type UploadedImage } from "@/services/ima
 import { nanoid } from "nanoid";
 import { getDataUrlByteSize, readImageMeta } from "@/lib/image-utils";
 import { canvasThemes, type CanvasBackgroundMode } from "@/lib/canvas-theme";
-import { useThemeStore } from "@/stores/use-theme-store";
-import { useAssetStore } from "@/stores/use-asset-store";
-import { useUserStore } from "@/stores/use-user-store";
 import { UserStatusActions } from "@/components/layout/user-status-actions";
+import { useAssetStore } from "@/stores/use-asset-store";
+import { useThemeStore } from "@/stores/use-theme-store";
 import { cropDataUrl } from "../utils/canvas-image-data";
 import { App, Button, Dropdown, Modal } from "antd";
 import { NODE_DEFAULT_SIZE, getNodeSpec } from "../constants";
@@ -243,8 +242,6 @@ function InfiniteCanvasPage() {
   const renameProject = useCanvasStore((state) => state.renameProject);
   const deleteProjects = useCanvasStore((state) => state.deleteProjects);
   const currentProject = useCanvasStore((state) => state.projects.find((project) => project.id === projectId));
-  const user = useUserStore((state) => state.user);
-  const logout = useUserStore((state) => state.clearSession);
   const theme = canvasThemes[useThemeStore((state) => state.theme)];
   const [nodes, setNodes] = useState<CanvasNodeData[]>([]);
   const [connections, setConnections] = useState<CanvasConnection[]>([]);
@@ -1764,7 +1761,6 @@ function InfiniteCanvasPage() {
           title={currentProject?.title || "未命名画布"}
           titleDraft={titleDraft}
           isTitleEditing={titleEditing}
-          userName={user?.username || "访客"}
           onTitleDraftChange={setTitleDraft}
           onStartTitleEditing={startTitleEditing}
           onFinishTitleEditing={finishTitleEditing}
@@ -1778,8 +1774,6 @@ function InfiniteCanvasPage() {
           onImportImage={() => handleUploadRequest()}
           onUndo={undoCanvas}
           onRedo={redoCanvas}
-          onOpenConfig={() => openConfigDialog(false)}
-          onLogout={logout}
           assistantCollapsed={assistantCollapsed}
           onExpandAssistant={() => {
             setAssistantMounted(true);
@@ -2051,7 +2045,6 @@ function CanvasTopBar({
   title,
   titleDraft,
   isTitleEditing,
-  userName,
   onTitleDraftChange,
   onStartTitleEditing,
   onFinishTitleEditing,
@@ -2065,15 +2058,12 @@ function CanvasTopBar({
   onImportImage,
   onUndo,
   onRedo,
-  onOpenConfig,
-  onLogout,
   assistantCollapsed,
   onExpandAssistant,
 }: {
   title: string;
   titleDraft: string;
   isTitleEditing: boolean;
-  userName: string;
   onTitleDraftChange: (value: string) => void;
   onStartTitleEditing: () => void;
   onFinishTitleEditing: () => void;
@@ -2087,14 +2077,11 @@ function CanvasTopBar({
   onImportImage: () => void;
   onUndo: () => void;
   onRedo: () => void;
-  onOpenConfig: () => void;
-  onLogout: () => void;
   assistantCollapsed: boolean;
   onExpandAssistant: () => void;
 }) {
   const colorTheme = useThemeStore((state) => state.theme);
   const theme = canvasThemes[colorTheme];
-  const initial = (userName.trim()[0] || "U").toUpperCase();
   const titleRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -2173,26 +2160,16 @@ function CanvasTopBar({
 
       <div className="pointer-events-auto flex items-center gap-1.5">
         <UserStatusActions
-          onOpenConfig={onOpenConfig}
-          userName={userName}
-          initial={initial}
           accountOpen={accountOpen}
           onAccountOpenChange={setAccountOpen}
           accountRef={accountRef}
           getPopupContainer={(node) => node.parentElement || document.body}
+          onOpenShortcuts={() => { setShortcutsOpen(true); setAccountOpen(false); }}
           iconStyle={{ color: theme.node.text }}
           gitHubClassName="size-11 text-base"
           gitHubStyle={{ color: theme.node.text }}
           versionStyle={{ color: theme.node.text }}
           avatarStyle={{ borderColor: theme.toolbar.border, color: theme.node.text }}
-          userLabel={initial}
-          menuItems={[
-            { key: "user", disabled: true, label: <span className="font-medium text-current">{userName}</span> },
-            { type: "divider" },
-            { key: "shortcuts", icon: <Keyboard className="size-4" />, label: "快捷键", onClick: () => { setShortcutsOpen(true); setAccountOpen(false); } },
-            { type: "divider" },
-            { key: "logout", icon: <LogOut className="size-4" />, label: "退出登录", onClick: () => { setAccountOpen(false); onLogout(); } },
-          ]}
         />
         {assistantCollapsed ? (
           <>

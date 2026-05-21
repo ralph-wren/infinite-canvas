@@ -1,23 +1,22 @@
 "use client";
 
-import type { CSSProperties, ReactNode, RefObject } from "react";
+import type { CSSProperties, RefObject } from "react";
 import { Dropdown } from "antd";
-import { Settings2 } from "lucide-react";
+import { Keyboard, LogOut, Settings2, Shield } from "lucide-react";
 import type { ItemType } from "antd/es/menu/interface";
+import Link from "next/link";
 
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { GitHubLink } from "@/components/layout/github-link";
 import { VersionReleaseModal } from "@/components/layout/version-release-modal";
 import { cn } from "@/lib/utils";
+import { useConfigStore } from "@/stores/use-config-store";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { useUserStore } from "@/stores/use-user-store";
 
 type UserStatusActionsProps = {
-  onOpenConfig?: () => void;
   showConfig?: boolean;
-  userName?: string;
-  initial?: string;
-  menuItems: ItemType[];
+  onOpenShortcuts?: () => void;
   accountOpen?: boolean;
   onAccountOpenChange?: (open: boolean) => void;
   accountRef?: RefObject<HTMLDivElement | null>;
@@ -27,16 +26,12 @@ type UserStatusActionsProps = {
   gitHubClassName?: string;
   gitHubStyle?: CSSProperties;
   versionStyle?: CSSProperties;
-  userLabel?: ReactNode;
   iconStyle?: CSSProperties;
 };
 
 export function UserStatusActions({
-  onOpenConfig,
   showConfig = true,
-  userName,
-  initial,
-  menuItems,
+  onOpenShortcuts,
   accountOpen,
   onAccountOpenChange,
   accountRef,
@@ -46,15 +41,23 @@ export function UserStatusActions({
   gitHubClassName,
   gitHubStyle,
   versionStyle,
-  userLabel,
   iconStyle,
 }: UserStatusActionsProps) {
   const theme = useThemeStore((state) => state.theme);
   const setTheme = useThemeStore((state) => state.setTheme);
-  const storedUserName = useUserStore((state) => state.user?.username);
-  const resolvedUserName = userName || storedUserName;
-  const avatarText = initial || (resolvedUserName?.trim()[0] || "U").toUpperCase();
+  const user = useUserStore((state) => state.user);
+  const logout = useUserStore((state) => state.clearSession);
+  const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
+  const userName = user?.username || "用户";
+  const avatarText = (userName.trim()[0] || "U").toUpperCase();
   const naturalIconClass = "inline-flex size-8 shrink-0 items-center justify-center text-stone-600 transition hover:text-stone-950 dark:text-stone-300 dark:hover:text-white [&_svg]:size-4";
+  const menuItems: ItemType[] = [
+    { key: "user", disabled: true, label: <span className="font-medium text-current">{userName}</span> },
+    ...(user?.role === "admin" ? [{ key: "admin", icon: <Shield className="size-4" />, label: <Link href="/admin">管理后台</Link> }] : []),
+    ...(onOpenShortcuts ? [{ key: "shortcuts", icon: <Keyboard className="size-4" />, label: "快捷键", onClick: onOpenShortcuts }] : []),
+    { type: "divider" },
+    { key: "logout", icon: <LogOut className="size-4" />, label: "退出登录", onClick: logout },
+  ];
 
   return (
     <div className="inline-flex shrink-0 items-center gap-1.5">
@@ -63,7 +66,7 @@ export function UserStatusActions({
           type="button"
           className={naturalIconClass}
           style={iconStyle}
-          onClick={onOpenConfig}
+          onClick={() => openConfigDialog(false)}
           aria-label="配置"
           title="配置"
         >
@@ -96,7 +99,7 @@ export function UserStatusActions({
             style={avatarStyle}
             aria-label="账户菜单"
           >
-            <span className="leading-none">{userLabel ?? avatarText}</span>
+            <span className="leading-none">{avatarText}</span>
           </button>
         </Dropdown>
       </div>

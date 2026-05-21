@@ -2,7 +2,6 @@
 
 import { FileTextOutlined, HomeOutlined, LogoutOutlined, PictureOutlined, SettingOutlined } from "@ant-design/icons";
 import { Button, Flex, Layout, Menu, Typography, theme } from "antd";
-import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -70,10 +69,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <Layout.Header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: adminLayoutStyle.headerHeight, padding: "0 24px", background: antToken.colorBgContainer, borderBottom: `1px solid ${antToken.colorBorder}` }}>
           <Typography.Title level={5} style={{ margin: 0 }}>{pageTitle}</Typography.Title>
           <Flex align="center" gap={4}>
-            <UserStatusActions
-              showConfig={false}
-              menuItems={[{ key: "logout", icon: <LogOut className="size-4" />, label: "退出登录", onClick: logout }]}
-            />
+            <UserStatusActions showConfig={false} />
           </Flex>
         </Layout.Header>
         <Layout.Content style={{ minHeight: 0, overflow: "auto" }}>{children}</Layout.Content>
