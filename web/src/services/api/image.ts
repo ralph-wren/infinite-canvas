@@ -31,6 +31,15 @@ const QUALITY_ALIASES: Record<string, string> = {
     "2k": "medium",
     "4k": "high",
 };
+const DEFAULT_ASPECT_SIZES: Record<string, string> = {
+    "1:1": "1024x1024",
+    "3:2": "1536x1024",
+    "2:3": "1024x1536",
+    "4:3": "1344x1024",
+    "3:4": "1024x1344",
+    "16:9": "1792x1024",
+    "9:16": "1024x1792",
+};
 
 function normalizeQuality(quality: string) {
     const value = quality.trim().toLowerCase();
@@ -67,7 +76,7 @@ function resolveRequestSize(quality: string | undefined, size: string) {
     const value = size.trim();
     if (!value || value === "auto") return undefined;
     if (/^\d+x\d+$/.test(value)) return value;
-    return (quality && resolveSize(quality, value)) || value;
+    return (quality && resolveSize(quality, value)) || DEFAULT_ASPECT_SIZES[value] || value;
 }
 
 function resolveImageDataUrl(item: Record<string, unknown>) {
