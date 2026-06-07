@@ -19,13 +19,37 @@ type ImageApiResponse = {
     msg?: string;
 };
 
-const QUALITY_BASE: Record<string, number> = {
-    low: 1024,
-    medium: 2048,
-    high: 2880,
-    standard: 1024,
-    hd: 2048,
+const QUALITY_ASPECT_SIZES: Record<string, Record<string, string>> = {
+    low: {
+        "1:1": "1024x1024",
+        "3:2": "1248x832",
+        "2:3": "832x1248",
+        "4:3": "1168x880",
+        "3:4": "880x1168",
+        "16:9": "1360x768",
+        "9:16": "768x1360",
+    },
+    medium: {
+        "1:1": "2048x2048",
+        "3:2": "2496x1664",
+        "2:3": "1664x2496",
+        "4:3": "2352x1760",
+        "3:4": "1760x2352",
+        "16:9": "2704x1520",
+        "9:16": "1536x2720",
+    },
+    high: {
+        "1:1": "2880x2880",
+        "3:2": "3520x2352",
+        "2:3": "2352x3520",
+        "4:3": "3312x2480",
+        "3:4": "2480x3312",
+        "16:9": "3840x2160",
+        "9:16": "2160x3840",
+    },
 };
+QUALITY_ASPECT_SIZES.standard = QUALITY_ASPECT_SIZES.low;
+QUALITY_ASPECT_SIZES.hd = QUALITY_ASPECT_SIZES.medium;
 const QUALITY_ALIASES: Record<string, string> = {
     "1k": "low",
     "2k": "medium",
@@ -33,43 +57,23 @@ const QUALITY_ALIASES: Record<string, string> = {
 };
 const DEFAULT_ASPECT_SIZES: Record<string, string> = {
     "1:1": "1024x1024",
-    "3:2": "1536x1024",
-    "2:3": "1024x1536",
-    "4:3": "1344x1024",
-    "3:4": "1024x1344",
-    "16:9": "1792x1024",
-    "9:16": "1024x1792",
+    "3:2": "1248x832",
+    "2:3": "832x1248",
+    "4:3": "1168x880",
+    "3:4": "880x1168",
+    "16:9": "1360x768",
+    "9:16": "768x1360",
 };
 
 function normalizeQuality(quality: string) {
     const value = quality.trim().toLowerCase();
     const normalized = QUALITY_ALIASES[value] || value;
-    return QUALITY_BASE[normalized] ? normalized : undefined;
+    return QUALITY_ASPECT_SIZES[normalized] ? normalized : undefined;
 }
 
-/** Map "quality + ratio" to an explicit pixel dimension like "3840x2160". Returns undefined when quality is auto. */
 function resolveSize(quality: string, ratio: string): string | undefined {
-    const basePixels = QUALITY_BASE[quality];
-    if (!basePixels || ratio === "auto" || !ratio) return undefined;
-
-    const parts = ratio.split(":");
-    if (parts.length !== 2) return undefined;
-    const w = Number(parts[0]);
-    const h = Number(parts[1]);
-    if (!w || !h) return undefined;
-
-    const targetPixels = basePixels * basePixels;
-    const isLandscape = w >= h;
-    const longRatio = isLandscape ? w / h : h / w;
-
-    const longSideRaw = Math.sqrt(targetPixels * longRatio);
-    const longSide = Math.floor(longSideRaw / 16) * 16;
-    const shortSide = Math.round((longSide / longRatio) / 16) * 16;
-
-    const width = isLandscape ? longSide : shortSide;
-    const height = isLandscape ? shortSide : longSide;
-
-    return `${width}x${height}`;
+    if (ratio === "auto" || !ratio) return undefined;
+    return QUALITY_ASPECT_SIZES[quality]?.[ratio];
 }
 
 function resolveRequestSize(quality: string | undefined, size: string) {
@@ -77,6 +81,90 @@ function resolveRequestSize(quality: string | undefined, size: string) {
     if (!value || value === "auto") return undefined;
     if (/^\d+x\d+$/.test(value)) return value;
     return (quality && resolveSize(quality, value)) || DEFAULT_ASPECT_SIZES[value] || value;
+}
+
+function gcd(a: number, b: number): number {
+    return b ? gcd(b, a % b) : Math.abs(a);
+}
+
+function resolveImageDimensions(size: string | undefined) {
+    const match = size?.trim().match(/^(\d+)x(\d+)$/);
+    if (!match) return null;
+    const width = Number(match[1]);
+    const height = Number(match[2]);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+    return { width, height };
+}
+
+function resolveAspectRatio(size: string | undefined, requestSize: string | undefined) {
+    const value = size?.trim();
+    if (!value || value === "auto") return undefined;
+    if (/^\d+:\d+$/.test(value)) return value;
+    const dimensions = resolveImageDimensions(requestSize);
+    if (!dimensions) return undefined;
+    const divisor = gcd(dimensions.width, dimensions.height);
+    return `${dimensions.width / divisor}:${dimensions.height / divisor}`;
+}
+
+function resolveImageSizeName(size: string | undefined, requestSize: string | undefined, quality: string | undefined) {
+    const value = size?.trim().toLowerCase();
+    if (value?.includes("4k")) return "4K";
+    if (value?.includes("2k")) return "2K";
+    const dimensions = resolveImageDimensions(requestSize);
+    const longSide = dimensions ? Math.max(dimensions.width, dimensions.height) : 0;
+    if (longSide >= 3000) return "4K";
+    if (longSide >= 1536) return "2K";
+    if (quality === "high") return "2K";
+    if (quality === "low") return "1K";
+    return undefined;
+}
+
+function buildImageRequestOptions(config: AiConfig, quality: string | undefined) {
+    const requestSize = resolveRequestSize(quality, config.size);
+    if (config.channelMode !== "remote") {
+        return {
+            ...(quality ? { quality } : {}),
+            ...(requestSize ? { size: requestSize } : {}),
+        };
+    }
+    const dimensions = resolveImageDimensions(requestSize);
+    const aspectRatio = resolveAspectRatio(config.size, requestSize);
+    const imageSize = resolveImageSizeName(config.size, requestSize, quality);
+    const googleImageConfig = {
+        ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+        ...(imageSize ? { image_size: imageSize } : {}),
+    };
+
+    return {
+        ...(quality ? { quality } : {}),
+        ...(requestSize ? { size: requestSize } : {}),
+        ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+        ...(dimensions ? { width: dimensions.width, height: dimensions.height } : {}),
+        ...(Object.keys(googleImageConfig).length ? { extra_body: { google: { image_config: googleImageConfig } } } : {}),
+    };
+}
+
+function appendImageRequestOptions(formData: FormData, config: AiConfig, quality: string | undefined) {
+    const requestSize = resolveRequestSize(quality, config.size);
+    if (quality) formData.set("quality", quality);
+    if (requestSize) formData.set("size", requestSize);
+    if (config.channelMode !== "remote") return;
+
+    const dimensions = resolveImageDimensions(requestSize);
+    const aspectRatio = resolveAspectRatio(config.size, requestSize);
+    const imageSize = resolveImageSizeName(config.size, requestSize, quality);
+    const googleImageConfig = {
+        ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+        ...(imageSize ? { image_size: imageSize } : {}),
+    };
+    if (aspectRatio) formData.set("aspect_ratio", aspectRatio);
+    if (dimensions) {
+        formData.set("width", String(dimensions.width));
+        formData.set("height", String(dimensions.height));
+    }
+    if (Object.keys(googleImageConfig).length) {
+        formData.set("extra_body", JSON.stringify({ google: { image_config: googleImageConfig } }));
+    }
 }
 
 function resolveImageDataUrl(item: Record<string, unknown>) {
@@ -162,7 +250,7 @@ function withSystemMessage(config: AiConfig, messages: ChatCompletionMessage[]) 
 export async function requestGeneration(config: AiConfig, prompt: string) {
     const n = Math.max(1, Math.min(15, Math.floor(Math.abs(Number(config.count)) || 1)));
     const quality = normalizeQuality(config.quality);
-    const requestSize = resolveRequestSize(quality, config.size);
+    const requestOptions = buildImageRequestOptions(config, quality);
     try {
         const response = await axios.post<ImageApiResponse>(
             aiApiUrl(config, "/images/generations"),
@@ -170,8 +258,7 @@ export async function requestGeneration(config: AiConfig, prompt: string) {
                 model: config.model,
                 prompt: withSystemPrompt(config, prompt),
                 n,
-                ...(quality ? { quality } : {}),
-                ...(requestSize ? { size: requestSize } : {}),
+                ...requestOptions,
                 response_format: "b64_json",
             },
             {
@@ -189,18 +276,12 @@ export async function requestGeneration(config: AiConfig, prompt: string) {
 export async function requestEdit(config: AiConfig, prompt: string, references: ReferenceImage[]) {
     const n = Math.max(1, Math.min(15, Math.floor(Math.abs(Number(config.count)) || 1)));
     const quality = normalizeQuality(config.quality);
-    const requestSize = resolveRequestSize(quality, config.size);
     const formData = new FormData();
     formData.set("model", config.model);
     formData.set("prompt", withSystemPrompt(config, prompt));
     formData.set("n", String(n));
     formData.set("response_format", "b64_json");
-    if (quality) {
-        formData.set("quality", quality);
-    }
-    if (requestSize) {
-        formData.set("size", requestSize);
-    }
+    appendImageRequestOptions(formData, config, quality);
     const files = await Promise.all(references.map(async (image) => dataUrlToFile({ ...image, dataUrl: await imageToDataUrl(image) })));
     files.forEach((file) => formData.append("image", file));
 
