@@ -134,12 +134,16 @@ function buildImageRequestOptions(config: AiConfig, quality: string | undefined)
         ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
         ...(imageSize ? { image_size: imageSize } : {}),
     };
+    const metadata = {
+        ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+    };
 
     return {
         ...(quality ? { quality } : {}),
         ...(requestSize ? { size: requestSize } : {}),
         ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
         ...(dimensions ? { width: dimensions.width, height: dimensions.height } : {}),
+        ...(Object.keys(metadata).length ? { metadata } : {}),
         ...(Object.keys(googleImageConfig).length ? { extra_body: { google: { image_config: googleImageConfig } } } : {}),
     };
 }
@@ -161,6 +165,9 @@ function appendImageRequestOptions(formData: FormData, config: AiConfig, quality
     if (dimensions) {
         formData.set("width", String(dimensions.width));
         formData.set("height", String(dimensions.height));
+    }
+    if (aspectRatio) {
+        formData.set("metadata", JSON.stringify({ aspect_ratio: aspectRatio }));
     }
     if (Object.keys(googleImageConfig).length) {
         formData.set("extra_body", JSON.stringify({ google: { image_config: googleImageConfig } }));
